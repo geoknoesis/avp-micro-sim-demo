@@ -30,7 +30,7 @@ GROUPS = {
     "② Binding & integrity": ["tampered-quote", "amount-mismatch", "currency-mismatch", "corrupted-signature"],
     "③ Settlement outcomes": ["insufficient-funds", "partial-settlement"],
     "④ Human-present approval": ["human-present-confirmed", "human-present-missing", "human-present-forged"],
-    "⑤ Streaming / metered": ["streaming-happy", "streaming-budget-exceeded", "streaming-extend-budget"],
+    "⑤ Streaming / metered": ["streaming-metered-session", "streaming-happy", "streaming-budget-exceeded", "streaming-extend-budget"],
     "⑥ AP2 bridge (imported authority)": [
         "bridge-imported-mandate-happy", "bridge-imported-over-cap",
         "bridge-human-present-imported", "bridge-human-present-imported-missing",
@@ -206,6 +206,14 @@ def render_header(res):
     with right:
         st.markdown("**Money on the simulated ledger** (play money — no real funds)")
         money_panel(res)
+        metered = [r for r in res["trace"] if r["action"] in ("accrue", "close_session")]
+        if metered:
+            sess = metered[-1].get("session") or {}
+            committed = Decimal(sess.get("committed") or "0")
+            accrued = Decimal(sess.get("accrued") or "0")
+            if committed > 0:
+                st.markdown("**Session budget** (metered total vs committed cap)")
+                st.progress(min(float(accrued / committed), 1.0), text=f"{accrued} / {committed} used")
         with st.expander("Spending policy (the mandate's terms)"):
             st.json(res["policy"])
         kind = "AP2 IntentMandate imported via did:web" if res["imported"] else "principal-signed credential"
@@ -232,6 +240,13 @@ def render_story(res):
             if rec["object"]:
                 with st.expander("signed message (JSON)"):
                     st.json(rec["object"])
+            if action in ("accrue", "close_session"):
+                sess = rec.get("session") or {}
+                committed = Decimal(sess.get("committed") or "0")
+                accrued = Decimal(sess.get("accrued") or "0")
+                if committed > 0:
+                    frac = min(float(accrued / committed), 1.0)
+                    st.progress(frac, text=f"metered budget: {accrued} / {committed} used ({int(frac * 100)}%)")
         else:
             icon, note = CONTROL.get(action, ("•", action))
             detail = ""
