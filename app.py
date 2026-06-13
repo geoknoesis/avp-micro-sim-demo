@@ -35,6 +35,10 @@ GROUPS = {
         "bridge-imported-mandate-happy", "bridge-imported-over-cap",
         "bridge-human-present-imported", "bridge-human-present-imported-missing",
     ],
+    "⑦ Refunds, reversals & disputes": [
+        "refund-full", "refund-partial", "over-refund-rejected",
+        "dispute-upheld-chargeback", "dispute-rejected", "dispute-withdrawn",
+    ],
 }
 
 ROLE = {  # role -> (colour, icon, what they do)
@@ -42,6 +46,7 @@ ROLE = {  # role -> (colour, icon, what they do)
     "Agent": ("#2563eb", "🤖", "Holds the authority; requests quotes and signs authorizations"),
     "Payee": ("#059669", "🏪", "Provides the service; signs quotes, usage, and receipts"),
     "Wallet": ("#d97706", "🏦", "Verifies everything, enforces policy, settles, signs executions"),
+    "Arbiter": ("#db2777", "⚖️", "Adjudicates a dispute when the parties don't agree"),
     "Ledger": ("#6b7280", "💰", "The (simulated) settlement rail — play money only"),
 }
 
@@ -57,6 +62,12 @@ FLOW = {
     "budget_authorize": ("Agent", "Wallet", "commits to a session budget"),
     "accrue": ("Payee", "Wallet", "reports incremental usage"),
     "close_session": ("Wallet", "Ledger", "settles the accrued total"),
+    "refund": ("Payee", "Agent", "issues a refund — money moves back"),
+    "reversal": ("Wallet", "Ledger", "reverses the settlement on the rail"),
+    "reversal_ack": ("Agent", "Payee", "acknowledges the reversal"),
+    "dispute": ("Agent", "Payee", "raises a dispute over the charge"),
+    "dispute_evidence": ("Payee", "Arbiter", "submits evidence"),
+    "dispute_resolution": ("Payee", "Agent", "decides the dispute outcome"),
 }
 CONTROL = {  # non-message steps
     "advance_clock": ("⏩", "time passes (testing expiry / daily windows)"),
@@ -65,6 +76,16 @@ CONTROL = {  # non-message steps
     "extend": ("➕", "the session budget cap is raised"),
 }
 PRODUCER = {a: v[0] for a, v in FLOW.items()}
+
+
+def producer_of(rec):
+    """Which participant signed a step's message (handles role-dependent steps)."""
+    a, o = rec["action"], (rec["object"] or {})
+    if a == "dispute_evidence":
+        return "Payee" if o.get("role") == "payee" else "Agent"
+    if a == "dispute_resolution":
+        return "Arbiter" if o.get("resolverRole") == "arbiter" else "Payee"
+    return PRODUCER.get(a)
 
 # rejection code -> plain explanation
 WHY = {
@@ -84,6 +105,8 @@ WHY = {
     "budgetExceeded": "this usage would exceed the committed session budget",
     "missingConfirmation": "fresh human approval is required, but none was provided",
     "forgedConfirmation": "the approval wasn't signed by the principal",
+    "overRefund": "the refund is larger than the original settlement",
+    "noReversalBasis": "there's no upheld resolution to charge back",
 }
 
 SCENARIOS = {s["name"]: s for s in sim.load_scenarios()}
@@ -139,18 +162,19 @@ def flow_dot(res) -> str:
     for rec in res["trace"]:
         if rec["action"] not in FLOW:
             continue
-        a, b, _ = FLOW[rec["action"]]
+        a = producer_of(rec) or FLOW[rec["action"]][0]
+        b = FLOW[rec["action"]][1]
         used.add(a); used.add(b)
         ok = rec["outcome"]["outcome"] == "ok" and rec["outcome"].get("status") != "failed"
         colour = "#059669" if ok else "#dc2626"
         label = f'{n}. {rec["action"]}'
-        amt = rec["params"].get("amount")
+        amt = rec["params"].get("amount") or rec["params"].get("resolvedAmount")
         if amt:
             label += f'  {amt}'
         dash = "" if ok else ' style=dashed'
         edges.append(f'"{a}" -> "{b}" [label="{label}" color="{colour}" fontcolor="{colour}" penwidth=2{dash}];')
         n += 1
-    for role in ["Principal", "Agent", "Payee", "Wallet", "Ledger"]:
+    for role in ["Principal", "Agent", "Payee", "Wallet", "Arbiter", "Ledger"]:
         if role in used:
             colour, icon, _ = ROLE[role]
             lines.append(f'"{role}" [label="{role}" fillcolor="{colour}"];')
@@ -199,8 +223,10 @@ def render_story(res):
         action = rec["action"]
         amt = rec["params"].get("amount")
         if action in FLOW:
-            a, b, phrase = FLOW[action]
+            _a, b, phrase = FLOW[action]
+            a = producer_of(rec) or _a
             ia, ib = ROLE[a][1], ROLE[b][1]
+            amt = amt or rec["params"].get("resolvedAmount")
             extra = f" **{amt}**" if amt else ""
             st.markdown(f"**{rec['i'] + 1}.** {ia} **{a}** → {ib} **{b}** — {phrase}{extra}  {chip(rec['outcome'])}")
             if rec["object"]:
@@ -219,7 +245,8 @@ def render_story(res):
 
 def render_participants(res):
     st.markdown("#### Each participant's view")
-    dids = {"Principal": res["credential"].get("issuer"), "Agent": None, "Payee": None, "Wallet": None}
+    dids = {"Principal": res["credential"].get("issuer"), "Agent": None,
+            "Payee": None, "Wallet": None, "Arbiter": None}
     for rec in res["trace"]:
         o = rec["object"] or {}
         dids["Agent"] = o.get("payer", dids["Agent"])
@@ -227,9 +254,16 @@ def render_participants(res):
         dids["Wallet"] = o.get("wallet", dids["Wallet"])
         if o.get("confirmedBy"):
             dids["Principal"] = o["confirmedBy"]
+        if o.get("arbiter"):
+            dids["Arbiter"] = o["arbiter"]
+        if o.get("resolverRole") == "arbiter":
+            dids["Arbiter"] = o.get("resolvedBy")
 
-    cols = st.columns(4)
-    for col, role in zip(cols, ["Principal", "Agent", "Payee", "Wallet"]):
+    roles = ["Principal", "Agent", "Payee", "Wallet"]
+    if any(producer_of(r) == "Arbiter" for r in res["trace"]) or dids["Arbiter"]:
+        roles.append("Arbiter")
+    cols = st.columns(len(roles))
+    for col, role in zip(cols, roles):
         colour, icon, desc = ROLE[role]
         with col:
             st.markdown(f"<h4 style='color:{colour};margin-bottom:0'>{icon} {role}</h4>", unsafe_allow_html=True)
@@ -243,7 +277,7 @@ def render_participants(res):
                 with st.expander("🔑 authority it holds (in every vp)"):
                     st.json(res["credential"])
 
-            mine = [r for r in res["trace"] if PRODUCER.get(r["action"]) == role]
+            mine = [r for r in res["trace"] if producer_of(r) == role]
             if not mine:
                 st.caption("_— no messages in this scenario —_")
             for r in mine:
