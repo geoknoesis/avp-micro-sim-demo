@@ -21,12 +21,18 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Then pick a use case in the sidebar. For each one the app shows:
+The header shows the four-box mental model (**Principal → Agent → Wallet → Payee**) and the
+sidebar carries a colour-coded **cast** legend so every diagram stays readable. Three views:
 
-- the **Spending Authorization Credential** (native, or an AP2-imported projection verified via `did:web`);
-- the **step-by-step signed message flow** — who acts, the wallet's decision, and the signed JSON each step emits;
-- the **play-money ledger** before and after; and
-- whether the run matched the scenario's declared expectation.
+- **Walk a use case** — one scenario end to end: a plain-English **outcome banner** (with the
+  machine refusal code when refused), the **message-flow diagram**, the **play-money ledger**
+  before/after (and a live **session-budget gauge** for streaming), then tabs for the
+  **📖 walkthrough**, **👥 by-participant** view, **🔑 policy & authority** (the mandate's terms
+  and the Spending Authorization Credential — native, or an AP2-imported projection verified via
+  `did:web`), and the **🧩 declarative source** (the exact JSON that defines the use case).
+- **All use cases** — every scenario at a glance with a pass/fail badge; press **Walk →** on any
+  row to jump straight into it.
+- **Conformance vectors** — see below.
 
 ## The use cases
 
@@ -47,7 +53,7 @@ dispute use cases add an **⚖️ Arbiter** participant.
 
 ## Conformance test vectors
 
-A third sidebar view, **Conformance vectors (spec)**, lists *every* signed conformance test
+A third sidebar view, **Conformance vectors**, lists *every* signed conformance test
 vector from the spec — Authority, Payments, Interop, and Disputes (~50 of them) — each as a
 use case, with its `ecdsa-jcs-2022` proof verified and the signed JSON inspectable. These are
 read **live** from a sibling `avp-micro-spec` checkout (or `AVP_SPEC_DIR`), so they stay current;
