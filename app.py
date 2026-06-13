@@ -62,6 +62,24 @@ ACTIONS = {
 
 SCENARIOS = {s["name"]: s for s in sim.load_scenarios()}
 
+# which participant signs (produces) each message
+PRODUCER = {
+    "quote": "Payee", "authorize": "Agent", "confirm": "Principal", "execute": "Wallet",
+    "replay": "Agent", "receipt": "Payee", "open_session": "Payee",
+    "budget_authorize": "Agent", "accrue": "Payee", "close_session": "Wallet",
+}
+# the four participant "wallets", in flow order
+PARTICIPANTS = [
+    ("Principal", "👤", "Issues the spending authority; signs fresh human approvals"),
+    ("Agent", "🤖", "Holds the authority; requests quotes and signs authorizations"),
+    ("Payee", "🏪", "Provides the service; signs quotes, usage, and receipts"),
+    ("Wallet", "🏦", "Verifies everything, enforces policy, settles, signs executions"),
+]
+
+
+def short(did):
+    return (did[:20] + "…") if did and len(did) > 22 else did
+
 
 def outcome_badge(outcome: dict) -> str:
     if outcome["outcome"] == "reject":
@@ -119,6 +137,69 @@ def render_scenario(name: str):
         st.divider()
 
 
+def render_participants(name: str):
+    """One panel per participant 'wallet': the messages it signs/holds, and (for the
+    wallet/verifier) its decision and the play-money ledger after each settlement."""
+    sc = SCENARIOS[name]
+    res = sim.run_traced(sc)
+
+    st.subheader(name)
+    st.write(res["description"])
+    (st.success if res["ok"] else st.error)(
+        "Behaved as specified ✅" if res["ok"] else "Did NOT match expectations ❌")
+
+    # derive each participant's DID from the signed messages
+    dids = {"Principal": res["credential"].get("issuer"), "Agent": None, "Payee": None, "Wallet": None}
+    for rec in res["trace"]:
+        o = rec["object"] or {}
+        if "payer" in o:
+            dids["Agent"] = o["payer"]
+        if "payee" in o:
+            dids["Payee"] = o["payee"]
+        if o.get("wallet"):
+            dids["Wallet"] = o["wallet"]
+        if o.get("confirmedBy"):
+            dids["Principal"] = o["confirmedBy"]
+
+    st.markdown("#### Participants")
+    cols = st.columns(4)
+    for col, (role, icon, desc) in zip(cols, PARTICIPANTS):
+        with col:
+            st.markdown(f"### {icon} {role}")
+            st.caption(desc)
+            if dids.get(role):
+                st.code(short(dids[role]), language=None)
+
+            if role == "Principal":
+                kind = "AP2 IntentMandate, imported via did:web" if res["imported"] else "principal-signed credential"
+                with st.expander(f"🔑 authority issued ({kind})"):
+                    st.json(res["credential"])
+            if role == "Agent":
+                with st.expander("🔑 authority held (presented in every authorization's vp)"):
+                    st.json(res["credential"])
+
+            produced = [r for r in res["trace"] if PRODUCER.get(r["action"]) == role]
+            if not produced and role not in ("Principal", "Agent"):
+                st.caption("_(no messages in this scenario)_")
+            for r in produced:
+                badge = (" — " + outcome_badge(r["outcome"])) if role == "Wallet" else ""
+                st.markdown(f"**{r['i']}. `{r['action']}`**{badge}")
+                if r["object"]:
+                    with st.expander("signed message"):
+                        st.json(r["object"])
+                if role == "Wallet":
+                    st.caption("ledger after → " + json.dumps(r["balances"]))
+
+            if role == "Wallet":
+                st.markdown("**Settlement ledger** (play money)")
+                cc = st.columns(2)
+                cc[0].caption("start"); cc[0].json(res["start"])
+                cc[1].caption("end"); cc[1].json(res["final"])
+            if role == "Payee" and dids.get("Payee"):
+                # the payee's role name on the ledger is the settlementTarget suffix; show received
+                pass
+
+
 def render_overview():
     st.subheader("All use cases")
     st.caption("Every scenario, run through the engine. Green = behaved as declared.")
@@ -144,7 +225,11 @@ view = st.sidebar.radio("View", ["Single scenario", "Overview (all)"])
 if view == "Single scenario":
     group = st.sidebar.selectbox("Category", list(GROUPS.keys()))
     name = st.sidebar.radio("Scenario", GROUPS[group])
-    render_scenario(name)
+    layout = st.radio("Layout", ["Participant wallets", "Message flow (timeline)"], horizontal=True)
+    if layout == "Participant wallets":
+        render_participants(name)
+    else:
+        render_scenario(name)
 else:
     render_overview()
 
