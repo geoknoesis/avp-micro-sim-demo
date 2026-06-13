@@ -3,8 +3,9 @@
 A [Streamlit](https://streamlit.io) app that demonstrates the **AVP-Micro** agent-payment
 protocol end to end — credential issuance/delegation, quote → authorize → execute → receipt,
 plus streaming/metered sessions (including **pay-per-token** LLM streaming), human-present
-approval, authority imported across the **AP2 bridge**, and the **refund / reversal / dispute**
-lifecycle — across **37 declarative use cases**, with **no real money**.
+approval, authority imported across the **AP2 bridge**, the **refund / reversal / dispute**
+lifecycle, and **on-chain settlement binding** (EVM / x402 / Lightning) — across
+**45 declarative use cases**, with **no real money**.
 
 Every message is signed for real with `ecdsa-jcs-2022` (P-256) and verified by a wallet
 that enforces the full policy (spend caps, allowed payees/categories, daily limits,
@@ -48,6 +49,7 @@ Defined declaratively in [`engine/sim-scenarios.json`](engine/sim-scenarios.json
 | ⑤ Streaming / metered | **pay-per-token** LLM streaming · metered session · happy · budget-exceeded · extend-budget mid-session |
 | ⑥ AP2 bridge (imported authority) | imported-mandate happy · imported over-cap · human-present via imported confirmation · missing |
 | ⑦ Refunds, reversals & disputes | refund full / partial · over-refund rejected · dispute upheld → chargeback · dispute rejected · withdrawn |
+| ⑧ On-chain settlement binding | EVM stablecoin (did:pkh) · x402 (PayeeAccountBinding) · account-redirection blocked · not-final · amount-mismatch · Lightning hold-invoice escrow · EVM escrow timeout-refund · on-chain reversal |
 
 Streaming use cases show a **live budget gauge** (cost and token count climbing toward the cap);
 dispute use cases add an **⚖️ Arbiter** participant.
@@ -55,8 +57,9 @@ dispute use cases add an **⚖️ Arbiter** participant.
 ## Conformance test vectors
 
 A third sidebar view, **Conformance vectors**, lists *every* signed conformance test
-vector from the spec — Authority, Payments, Interop, and Disputes (~50 of them) — each as a
-use case, with its `ecdsa-jcs-2022` proof verified and the signed JSON inspectable. These are
+vector from the spec — Authority, Payments, Interop, Disputes, and on-chain Settlement
+binding — each as a use case, with its `ecdsa-jcs-2022` proof verified and the signed JSON
+inspectable. These are
 read **live** from a sibling `avp-micro-spec` checkout (or `AVP_SPEC_DIR`), so they stay current;
 if the spec repo isn't found, this view degrades gracefully and the simulator use cases still work.
 

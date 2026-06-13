@@ -30,6 +30,7 @@ SPEC_DIR = next((Path(p) for p in [
 BUNDLES = [
     ("Authority (DSA)", "authority"), ("Payments", "payments"),
     ("Interop (SD-JWT-VC)", "interop-sd-jwt-vc"), ("Refunds, reversals & disputes", "disputes"),
+    ("On-chain settlement binding", "settlement"),
 ]
 
 st.set_page_config(page_title="AVP-Micro Simulator", page_icon="🔐", layout="wide")
@@ -134,6 +135,11 @@ GROUPS = {
         "refund-full", "refund-partial", "over-refund-rejected",
         "dispute-upheld-chargeback", "dispute-rejected", "dispute-withdrawn",
     ],
+    "⑧ On-chain settlement binding": [
+        "settle-evm-direct", "settle-x402-account-binding", "settle-account-redirection",
+        "settle-not-final", "settle-amount-mismatch", "settle-lightning-escrow",
+        "settle-evm-escrow-timeout", "settle-reverse",
+    ],
 }
 
 ROLE = {  # role -> (colour, icon, what they do)
@@ -178,6 +184,14 @@ FLOW = {
     "dispute": ("Agent", "Payee", "raises a dispute over the charge"),
     "dispute_evidence": ("Payee", "Arbiter", "submits evidence"),
     "dispute_resolution": ("Payee", "Agent", "decides the dispute outcome"),
+    "payee_binding": ("Payee", "Wallet", "signs a PayeeAccountBinding — proves it controls the on-chain account"),
+    "settle_instruct": ("Wallet", "Ledger", "issues a SettlementInstruction — binds the authorization to a concrete rail"),
+    "settle_proof": ("Ledger", "Wallet", "returns a SettlementProof — chain transaction + finality"),
+    "escrow_lock": ("Wallet", "Ledger", "locks the funds in escrow (hold)"),
+    "escrow_release": ("Ledger", "Payee", "releases the escrow to the payee"),
+    "escrow_refund": ("Ledger", "Agent", "refunds the escrow to the payer on timeout"),
+    "reverse_settle_instruct": ("Wallet", "Ledger", "issues a reverse SettlementInstruction (payer/payee swapped)"),
+    "reverse_settle_proof": ("Ledger", "Wallet", "returns the reverse SettlementProof — compensating transfer"),
 }
 CONTROL = {  # non-message steps
     "advance_clock": ("⏩", "time passes (testing expiry / daily windows)"),
@@ -220,6 +234,9 @@ WHY = {
     "forgedConfirmation": "the approval wasn't signed by the principal",
     "overRefund": "the refund is larger than the original settlement",
     "noReversalBasis": "there's no upheld resolution to charge back",
+    "accountRedirection": "the settlement account isn't bound to the payee's DID (redirection blocked)",
+    "settlementNotFinal": "the settlement proof hasn't reached the chain's finality threshold",
+    "settlementMismatch": "the settlement proof doesn't match the instructed amount or binding",
 }
 
 SCENARIOS = {s["name"]: s for s in sim.load_scenarios()}
@@ -262,8 +279,10 @@ def outcome_of(res):
                     "sub": why[:1].upper() + why[1:] + "."}
     last = None
     for rec in res["trace"]:
-        if rec["action"] in ("execute", "close_session"):
-            last = rec["outcome"]
+        if rec["action"] in ("execute", "close_session", "settle_proof",
+                             "escrow_release", "reverse_settle_proof"):
+            if rec["outcome"].get("outcome") == "ok" and "status" in rec["outcome"]:
+                last = rec["outcome"]
     if last:
         s = last.get("status")
         if s == "completed":
