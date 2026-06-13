@@ -30,7 +30,7 @@ GROUPS = {
     "② Binding & integrity": ["tampered-quote", "amount-mismatch", "currency-mismatch", "corrupted-signature"],
     "③ Settlement outcomes": ["insufficient-funds", "partial-settlement"],
     "④ Human-present approval": ["human-present-confirmed", "human-present-missing", "human-present-forged"],
-    "⑤ Streaming / metered": ["streaming-metered-session", "streaming-happy", "streaming-budget-exceeded", "streaming-extend-budget"],
+    "⑤ Streaming / metered": ["streaming-token-usage", "streaming-metered-session", "streaming-happy", "streaming-budget-exceeded", "streaming-extend-budget"],
     "⑥ AP2 bridge (imported authority)": [
         "bridge-imported-mandate-happy", "bridge-imported-over-cap",
         "bridge-human-present-imported", "bridge-human-present-imported-missing",
@@ -183,6 +183,20 @@ def flow_dot(res) -> str:
     return "\n".join(lines)
 
 
+def meter_caption(sess):
+    """(progress fraction, caption) for a session step — includes the metered units
+    (e.g. tokens) when present."""
+    accrued = Decimal(sess.get("accrued") or "0")
+    committed = Decimal(sess.get("committed") or "0")
+    units = Decimal(sess.get("units") or "0")
+    dim = (sess.get("dimension") or "").split(":")[-1] or "units"
+    txt = f"{accrued} / {committed} used"
+    if units > 0:
+        txt = f"{int(units):,} {dim} · " + txt
+    frac = float(accrued / committed) if committed > 0 else 0.0
+    return min(frac, 1.0), txt
+
+
 def money_panel(res):
     start, final = res["start"], res["final"]
     roles = [r for r in ["agent", "payee", "payee2"] if r in start or r in final]
@@ -207,13 +221,10 @@ def render_header(res):
         st.markdown("**Money on the simulated ledger** (play money — no real funds)")
         money_panel(res)
         metered = [r for r in res["trace"] if r["action"] in ("accrue", "close_session")]
-        if metered:
-            sess = metered[-1].get("session") or {}
-            committed = Decimal(sess.get("committed") or "0")
-            accrued = Decimal(sess.get("accrued") or "0")
-            if committed > 0:
-                st.markdown("**Session budget** (metered total vs committed cap)")
-                st.progress(min(float(accrued / committed), 1.0), text=f"{accrued} / {committed} used")
+        if metered and Decimal((metered[-1].get("session") or {}).get("committed") or "0") > 0:
+            frac, txt = meter_caption(metered[-1]["session"])
+            st.markdown("**Session budget** (metered total vs committed cap)")
+            st.progress(frac, text=txt)
         with st.expander("Spending policy (the mandate's terms)"):
             st.json(res["policy"])
         kind = "AP2 IntentMandate imported via did:web" if res["imported"] else "principal-signed credential"
@@ -242,11 +253,9 @@ def render_story(res):
                     st.json(rec["object"])
             if action in ("accrue", "close_session"):
                 sess = rec.get("session") or {}
-                committed = Decimal(sess.get("committed") or "0")
-                accrued = Decimal(sess.get("accrued") or "0")
-                if committed > 0:
-                    frac = min(float(accrued / committed), 1.0)
-                    st.progress(frac, text=f"metered budget: {accrued} / {committed} used ({int(frac * 100)}%)")
+                if Decimal(sess.get("committed") or "0") > 0:
+                    frac, txt = meter_caption(sess)
+                    st.progress(frac, text=f"metered budget: {txt} ({int(frac * 100)}%)")
         else:
             icon, note = CONTROL.get(action, ("•", action))
             detail = ""
