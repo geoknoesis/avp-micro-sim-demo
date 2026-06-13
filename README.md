@@ -45,6 +45,14 @@ Defined declaratively in [`engine/sim-scenarios.json`](engine/sim-scenarios.json
 Streaming use cases show a **live budget gauge** (cost and token count climbing toward the cap);
 dispute use cases add an **⚖️ Arbiter** participant.
 
+## Conformance test vectors
+
+A third sidebar view, **Conformance vectors (spec)**, lists *every* signed conformance test
+vector from the spec — Authority, Payments, Interop, and Disputes (~50 of them) — each as a
+use case, with its `ecdsa-jcs-2022` proof verified and the signed JSON inspectable. These are
+read **live** from a sibling `avp-micro-spec` checkout (or `AVP_SPEC_DIR`), so they stay current;
+if the spec repo isn't found, this view degrades gracefully and the simulator use cases still work.
+
 ## Engine
 
 The simulator engine under [`engine/`](engine/) is vendored from the

@@ -8,6 +8,7 @@ tucked behind expanders. No real money: settlement is a stubbed in-memory ledger
 Run:  streamlit run app.py
 """
 import json
+import os
 import sys
 from decimal import Decimal
 from pathlib import Path
@@ -16,6 +17,20 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent / "engine"))
 import sim  # noqa: E402  (vendored engine)
+import avp_crypto as ac  # noqa: E402  (vendored: ecdsa-jcs-2022 verify)
+
+# Locate the spec repo (for the signed conformance test vectors). Read live so the
+# list stays current with the spec; degrade gracefully if it isn't a sibling.
+SPEC_DIR = next((Path(p) for p in [
+    os.environ.get("AVP_SPEC_DIR", ""),
+    str(Path(__file__).parent.parent / "avp-micro-spec" / "spec"),
+    str(Path(__file__).parent / "spec"),
+] if p and Path(p).exists()), None)
+
+BUNDLES = [
+    ("Authority (DSA)", "authority"), ("Payments", "payments"),
+    ("Interop (SD-JWT-VC)", "interop-sd-jwt-vc"), ("Refunds, reversals & disputes", "disputes"),
+]
 
 st.set_page_config(page_title="AVP-Micro Simulator", page_icon="🔐", layout="wide")
 
@@ -317,6 +332,62 @@ def render_participants(res):
                 st.json(res["final"])
 
 
+def _verify_vector(obj):
+    """True/False if it carries an ecdsa-jcs-2022 Data Integrity proof; None otherwise
+    (an unsigned fixture, a foreign SD-JWT envelope, or a proof-preserving projection
+    verified in its own stack)."""
+    if isinstance(obj, dict) and isinstance(obj.get("proof"), dict) \
+            and obj["proof"].get("cryptosuite") == "ecdsa-jcs-2022":
+        try:
+            return ac.verify_ecdsa_jcs_2022(obj)
+        except Exception:
+            return False
+    return None
+
+
+_SKIP = {"keys.json"}  # the resolver fixture (not a conformance object)
+
+
+def render_conformance():
+    st.markdown("### Conformance test vectors")
+    if not SPEC_DIR:
+        st.warning("Spec repo not found. Set `AVP_SPEC_DIR` to the spec/ directory, or place this "
+                   "demo beside the `avp-micro-spec` repo, to list the signed conformance vectors here.")
+        return
+    st.caption(f"Every signed test vector in the spec, read live from `{SPEC_DIR}`. "
+               "✅ = its `ecdsa-jcs-2022` proof verifies; native AVP objects are signed, while "
+               "foreign SD-JWT envelopes and proof-preserving projections are verified in their own stack.")
+    total = verified = 0
+    for title, d in BUNDLES:
+        base = SPEC_DIR / d / "test-vectors"
+        if not base.exists():
+            continue
+        files = [f for f in sorted(base.glob("*.json")) if f.name not in _SKIP]
+        if not files:
+            continue
+        st.markdown(f"#### {title}  ·  `{d}/`")
+        for f in files:
+            total += 1
+            try:
+                obj = json.loads(f.read_text(encoding="utf-8"))
+            except Exception as e:
+                st.markdown(f"- ⚠️ `{f.name}` — unreadable ({e})")
+                continue
+            t = obj.get("type") if isinstance(obj, dict) else None
+            if isinstance(t, list):
+                t = next((x for x in t if x != "VerifiableCredential"), t[0])
+            v = _verify_vector(obj)
+            if v is True:
+                badge, verified = ":green[✅ proof verifies]", verified + 1
+            elif v is False:
+                badge = ":red[⛔ proof FAILS]"
+            else:
+                badge = ":gray[— fixture / verified in its own stack]"
+            with st.expander(f"`{f.name}` — {t or 'fixture'}  ·  {badge}"):
+                st.json(obj)
+    st.success(f"{total} test vectors listed · {verified} carry a native `ecdsa-jcs-2022` proof that verifies.")
+
+
 def render_overview():
     st.markdown("### All use cases")
     st.caption("Every scenario, run through the engine. ✅ = behaved exactly as declared.")
@@ -336,7 +407,7 @@ st.caption("Real `ecdsa-jcs-2022` signatures and full wallet policy enforcement,
            "**no real funds move anywhere.**")
 
 st.sidebar.header("Demo")
-view = st.sidebar.radio("View", ["Walk a use case", "Overview (all)"])
+view = st.sidebar.radio("View", ["Walk a use case", "Overview (all)", "Conformance vectors (spec)"])
 
 if view == "Walk a use case":
     group = st.sidebar.selectbox("Category", list(GROUPS.keys()))
@@ -347,8 +418,10 @@ if view == "Walk a use case":
     st.markdown("---")
     detail = st.radio("Detail view", ["📖 Step by step", "👥 By participant"], horizontal=True)
     (render_story if detail.startswith("📖") else render_participants)(res)
-else:
+elif view == "Overview (all)":
     render_overview()
+else:
+    render_conformance()
 
 st.sidebar.divider()
 st.sidebar.caption(f"{len(SCENARIOS)} use cases · engine vendored from avp-micro-spec · no real money")
