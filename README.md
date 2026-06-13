@@ -1,10 +1,10 @@
 # AVP-Micro protocol simulator — interactive demo
 
 A [Streamlit](https://streamlit.io) app that demonstrates the **AVP-Micro** agent-payment
-protocol end to end — quote → authorize → execute → receipt, plus streaming/metered
-sessions (including **pay-per-token** LLM streaming), human-present approval, authority
-imported across the **AP2 bridge**, and the **refund / reversal / dispute** lifecycle —
-across **32 declarative use cases**, with **no real money**.
+protocol end to end — credential issuance/delegation, quote → authorize → execute → receipt,
+plus streaming/metered sessions (including **pay-per-token** LLM streaming), human-present
+approval, authority imported across the **AP2 bridge**, and the **refund / reversal / dispute**
+lifecycle — across **37 declarative use cases**, with **no real money**.
 
 Every message is signed for real with `ecdsa-jcs-2022` (P-256) and verified by a wallet
 that enforces the full policy (spend caps, allowed payees/categories, daily limits,
@@ -40,6 +40,7 @@ Defined declaratively in [`engine/sim-scenarios.json`](engine/sim-scenarios.json
 
 | Group | Scenarios |
 |---|---|
+| ⓪ Delegate authority (issuance) | principal issues a bounded credential to the agent · issued to the wrong key → holder-mismatch · issued already-expired · issued then revoked · **AP2**: the user issues an IntentMandate the agent imports |
 | ① One-off payments | happy path · over-cap · payee-not-allowed · category-not-allowed · daily-limit exceeded / resets next day · expired · replayed |
 | ② Binding & integrity | tampered-quote · amount-mismatch · currency-mismatch · corrupted-signature |
 | ③ Settlement outcomes | insufficient-funds (`failed`) · partial-settlement (`partial`) |

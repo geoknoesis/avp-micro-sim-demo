@@ -113,6 +113,10 @@ a, a:visited{ color:var(--accent); }
 # ---- vocabulary ------------------------------------------------------------
 
 GROUPS = {
+    "⓪ Delegate authority (issuance)": [
+        "issue-delegate-authority", "issue-wrong-subject", "issue-expired-credential",
+        "issue-then-revoked", "issue-ap2-intent",
+    ],
     "① One-off payments": [
         "one-off-happy-path", "over-per-transaction-cap", "payee-not-allowed",
         "category-not-allowed", "daily-limit-exceeded", "daily-limit-resets-next-day",
@@ -156,6 +160,8 @@ MENTAL_MODEL = [
 
 # action -> (sender, receiver, plain verb phrase)
 FLOW = {
+    "issue": ("Principal", "Agent", "issues a Spending Authorization Credential — delegating bounded authority"),
+    "revoke": ("Principal", "Wallet", "revokes the credential — later charges under it are refused"),
     "quote": ("Payee", "Agent", "sends a signed price quote"),
     "authorize": ("Agent", "Wallet", "signs an authorization to pay — binds the quote and presents its mandate"),
     "confirm": ("Principal", "Wallet", "signs a fresh human approval of this exact purchase"),
@@ -206,6 +212,8 @@ WHY = {
     "currencyMismatch": "the currency isn't the one the mandate authorizes",
     "badSignature": "the authorization's signature is invalid",
     "badCredential": "the embedded authority failed verification",
+    "credentialExpired": "the credential's own validity window has passed",
+    "credentialRevoked": "the principal revoked this credential",
     "holderMismatch": "the signer isn't the subject of the credential",
     "budgetExceeded": "this usage would exceed the committed session budget",
     "missingConfirmation": "fresh human approval is required, but none was provided",
