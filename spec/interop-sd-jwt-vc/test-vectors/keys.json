@@ -1,0 +1,72 @@
+{
+  "_warning": "TEST KEYS ONLY. P-256 scalars are derived deterministically; do not reuse.",
+  "bridgeExporter": {
+    "did": "did:web:bridge.example",
+    "kid": "did:web:bridge.example#key-1",
+    "jwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "8Xy153nQ92BN4KqsqOcZqO46UlqIilMh6yO4rZxZ2zY",
+      "y": "PRfy2n38zh5EUQgpV8A3esq0sg6Z6yFLrFFE-SHSFrM"
+    }
+  },
+  "viIssuer": {
+    "did": "did:web:issuer.example",
+    "kid": "did:web:issuer.example#key-1",
+    "jwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "W2DS0DdFNUDHW25Pu_PNS7aNaRVe6CB_hIx9EsFkRvQ",
+      "y": "UA3o5M_QQdKkLfNJFgIbWHphsHllhpPjzKglG19OetA"
+    }
+  },
+  "coIssuer": {
+    "did": "did:web:acme.example",
+    "kid": "did:web:acme.example#es",
+    "jwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "JoNIuledQLNIQd2R7A-GDpWmYjulClOTwuvJAEnDCD8",
+      "y": "d8vYdLzDwtjA4iWs8-q-01UvTqK8Exaj6az-jsoegJU"
+    },
+    "note": "Same P-256 key as the did:key DSA issuer's verification method (one principal, two DID forms); the co-issued ES256 SD-JWT is signed with that same key."
+  },
+  "attestingBridge": {
+    "did": "did:key:zDnaezHkF8whx2trA4t2G4AqFfBC7nZu1H7mr3CixndH8pbeh"
+  },
+  "didWebResolver": {
+    "did:web:bridge.example": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "8Xy153nQ92BN4KqsqOcZqO46UlqIilMh6yO4rZxZ2zY",
+      "y": "PRfy2n38zh5EUQgpV8A3esq0sg6Z6yFLrFFE-SHSFrM"
+    },
+    "did:web:issuer.example": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "W2DS0DdFNUDHW25Pu_PNS7aNaRVe6CB_hIx9EsFkRvQ",
+      "y": "UA3o5M_QQdKkLfNJFgIbWHphsHllhpPjzKglG19OetA"
+    },
+    "did:web:acme.example": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "JoNIuledQLNIQd2R7A-GDpWmYjulClOTwuvJAEnDCD8",
+      "y": "d8vYdLzDwtjA4iWs8-q-01UvTqK8Exaj6az-jsoegJU"
+    },
+    "did:web:user.example": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "PW5YZ8vMcEWiOTIDWYt3TQwsZmZgGcoIvHmKN2stAkM",
+      "y": "VluYq9SDXpM921T7FTxz8vokb5dSmmZhjh7Zbr57HtY"
+    },
+    "did:web:merchant.example": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "Db2plK0EvqB9DAJJUuHlHYFq2y8ZkzexpGESNEu_grw",
+      "y": "e4MOPyVk0um9emUHke663LHPayL0JFa_n7N0qYkJTiQ"
+    }
+  },
+  "trustedBridges": [
+    "did:key:zDnaezHkF8whx2trA4t2G4AqFfBC7nZu1H7mr3CixndH8pbeh"
+  ]
+}

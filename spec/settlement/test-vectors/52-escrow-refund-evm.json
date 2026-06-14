@@ -1,0 +1,24 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://w3id.org/security/data-integrity/v2",
+    "https://w3id.org/spending-authority/v1",
+    "https://w3id.org/avp-micro/v1",
+    "https://w3id.org/avp-micro/settlement/v1"
+  ],
+  "id": "urn:avp:escrow-refund:evm",
+  "type": "EscrowRefund",
+  "lock": "urn:avp:escrow-lock:evm",
+  "lockDigest": "sha-256:JrmZ5WE-mw5Hvj6OThbdmz4R80lXds73zRdfsjAlcPs",
+  "settlementProof": "urn:avp:settle-proof:evm-refund",
+  "settlementProofDigest": "sha-256:Tlo-JeoSg2xugYCGd72K2XueF-zJNLSx1xPpCCf1VG4",
+  "reason": "timeout",
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "ecdsa-jcs-2022",
+    "created": "2026-03-25T21:46:10Z",
+    "verificationMethod": "did:key:zDnaewEjk4E5N6FinFs4YxANAsKEzQTdcYHP2GndUKJsPMR2P#zDnaewEjk4E5N6FinFs4YxANAsKEzQTdcYHP2GndUKJsPMR2P",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "zZ4cTys1veuRBqsUxEtWfT7s9LqVkUnUUgWPe3fNtVD66xHzh98FbTMz3CVYkbRUE3QLiqRnzyZsYDzXdC9ek58u"
+  }
+}

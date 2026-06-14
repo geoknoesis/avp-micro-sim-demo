@@ -1,0 +1,35 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://w3id.org/security/data-integrity/v2",
+    "https://w3id.org/spending-authority/v1",
+    "https://w3id.org/avp-micro/v1",
+    "https://w3id.org/avp-micro/settlement/v1"
+  ],
+  "id": "urn:avp:settle-instr:reverse",
+  "type": "SettlementInstruction",
+  "authorization": "urn:avp:authz:999",
+  "authorizationDigest": "sha-256:A7Rd5gGcJ5qHLPtGg3NXCi9fd1G3QO4I29W6g6xq_jQ",
+  "rail": "stl:rail-evm-stablecoin",
+  "chain": "eip155:8453",
+  "payeeAccount": "eip155:8453:0xbb29327b0260c91ec5d5e0c913b5291e0f722ecb",
+  "asset": "eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "payer": "did:key:zDnaenNXPt8JM5YYhrjp23T2ZsgGjyEhVVSC7dhFjbQwdrxEN",
+  "payee": "did:key:zDnaew8NDU8VgvxWpWWxBeLWaVbGNEuXYyRFk2uLMjCdhxkSU",
+  "amount": "0.001",
+  "currency": "USD",
+  "amountBase": "1000",
+  "confirmationThreshold": 12,
+  "mode": "direct",
+  "payeeAccountBinding": "urn:avp:payee-binding:agent",
+  "nonce": "settle-reverse-1",
+  "expires": "2026-03-26T10:00:00Z",
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "ecdsa-jcs-2022",
+    "created": "2026-03-26T09:05:00Z",
+    "verificationMethod": "did:key:zDnaewEjk4E5N6FinFs4YxANAsKEzQTdcYHP2GndUKJsPMR2P#zDnaewEjk4E5N6FinFs4YxANAsKEzQTdcYHP2GndUKJsPMR2P",
+    "proofPurpose": "assertionMethod",
+    "proofValue": "z58hQdwP6zrynb9FAauY4ypkrobuRPyneVw3bfqoVutAGM8EX5Uv49i7fZ7WT3uo2qYsSHFhB515ho7YofvaW8pjP"
+  }
+}

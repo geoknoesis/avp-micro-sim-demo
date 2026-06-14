@@ -1,0 +1,34 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/credentials/v2",
+    "https://w3id.org/security/data-integrity/v2",
+    "https://w3id.org/spending-authority/v1",
+    "https://w3id.org/avp-micro/interop/sd-jwt-vc/v1"
+  ],
+  "type": [
+    "VerifiableCredential",
+    "SpendingAuthorizationCredential"
+  ],
+  "issuer": "did:web:issuer.example",
+  "credentialSubject": {
+    "id": "did:key:zDnaew8NDU8VgvxWpWWxBeLWaVbGNEuXYyRFk2uLMjCdhxkSU",
+    "maxPerTransaction": "0.10",
+    "dailyLimit": "10.00",
+    "allowedPayees": [
+      "did:key:zDnaenNXPt8JM5YYhrjp23T2ZsgGjyEhVVSC7dhFjbQwdrxEN"
+    ]
+  },
+  "id": "urn:vi:mandate:sd:001",
+  "validFrom": "2026-04-01T00:00:00Z",
+  "validUntil": "2026-07-01T00:00:00Z",
+  "securing": {
+    "mode": "proof-preserving",
+    "carrier": "sd-jwt-vc",
+    "embedded": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImRpZDp3ZWI6aXNzdWVyLmV4YW1wbGUja2V5LTEiLCJ0eXAiOiJkYytzZC1qd3QifQ.eyJfc2QiOlsiM3o0WGxNZWxDWGkzOWcteWluZWYxRWU5QWhkRFZRTGxzMkRKRE9aenhsNCIsImQ4Q2RzMHZrLVV0c2VOaFhseEpNcEFQRmY0OFdPR1h4X0FUTU5yUjJHZmciXSwiX3NkX2FsZyI6InNoYS0yNTYiLCJjbmYiOnsiandrIjp7ImNydiI6IlAtMjU2Iiwia3R5IjoiRUMiLCJ4IjoieUJnSndOdWNMTlkyNnVBbEVBejl1aHZMTTdqVHlraDhSMTdIOVZkWnRpayIsInkiOiJ4MHdRRDU5OVBYQ3FzRnVtVHR5dVExU09aWHU4UmF5bWRWdUt2RTNBVDZVIn19LCJleHAiOjE3ODI4NjQwMDAsImlzcyI6ImRpZDp3ZWI6aXNzdWVyLmV4YW1wbGUiLCJqdGkiOiJ1cm46dmk6bWFuZGF0ZTpzZDowMDEiLCJsaW1pdHMiOnsicGVyX2RheSI6IjEwLjAwIiwicGVyX3R4biI6IjAuMTAifSwibmJmIjoxNzc1MDAxNjAwLCJzdWIiOiJkaWQ6a2V5OnpEbmFldzhORFU4Vmd2eFdwV1d4QmVMV2FWYkdORXVYWXlSRmsydUxNakNkaHhrU1UiLCJ2Y3QiOiJtYW5kYXRlLnNwZW5kaW5nLWF1dGhvcml0eS5hdnAifQ.XjbxbXmIjYcB9YguuegdaryL07RF3CedUE3KVetTcO9tUV_fVU0HgNkNnmwhWugZ6C3dAJyYYKL68w80pX7Low~WyJzYWx0LWFsbG93ZWQtcGF5ZWVzIiwiYWxsb3dlZF9wYXllZXMiLFsiZGlkOmtleTp6RG5hZW5OWFB0OEpNNVlZaHJqcDIzVDJac2dHanlFaFZWU0M3ZGhGamJRd2RyeEVOIl1d~",
+    "sourceVct": "mandate.spending-authority.avp",
+    "importAdvisory": [
+      "partial-selective-disclosure: 1 claim(s) withheld; subset view, not a complete mandate"
+    ],
+    "profileVersion": "0.1.0"
+  }
+}

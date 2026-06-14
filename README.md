@@ -81,6 +81,12 @@ verified and the signed JSON inspectable. These are
 read **live** from a sibling `avp-micro-spec` checkout (or `AVP_SPEC_DIR`), so they stay current;
 if the spec repo isn't found, this view degrades gracefully and the simulator use cases still work.
 
+For the hosted deploy (Streamlit Community Cloud), where no sibling checkout exists, a snapshot of
+the signed vectors and the Wallet Conformance Profile is vendored under [`spec/`](spec/) — the app's
+last resolution fallback — so the **Conformance vectors**, **Transport (HTTP 402)**, and **Wallet
+conformance** views work there too. Refresh it from the spec repo when the vectors change:
+`cp -r ../avp-micro-spec/spec/*/test-vectors spec/<bundle>/ … && cp -r ../avp-micro-spec/spec/conformance spec/`.
+
 ## Engine
 
 The simulator engine under [`engine/`](engine/) is vendored from the
