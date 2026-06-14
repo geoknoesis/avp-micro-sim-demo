@@ -148,10 +148,11 @@ GROUPS = {
         "refund-full", "refund-partial", "over-refund-rejected",
         "dispute-upheld-chargeback", "dispute-rejected", "dispute-withdrawn",
     ],
-    "⑧ On-chain settlement binding": [
+    "⑧ Settlement binding (on-chain + processor)": [
         "settle-evm-direct", "settle-x402-account-binding", "settle-account-redirection",
         "settle-not-final", "settle-amount-mismatch", "settle-lightning-escrow",
         "settle-evm-escrow-timeout", "settle-reverse",
+        "settle-card-stripe", "settle-rtp-push", "settle-card-redirection",
     ],
 }
 

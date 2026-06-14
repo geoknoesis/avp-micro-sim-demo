@@ -255,4 +255,19 @@ EXPLAINERS = {
         "why": "Shows how an authorization-layer reversal (refund/chargeback) is realized on-chain as a compensating transaction.",
         "watch": "Value returns to the agent via the reverse transfer (✅).",
     },
+    "settle-card-stripe": {
+        "what": "The authorization is settled over a **card rail** through a processor (Stripe). The wallet binds it to a payee-signed `ProcessorAccountBinding`, instructs an authorize-then-capture, and the payee returns a **payee-attested** `AttestedSettlementProof` that the card was captured — then the money moves.",
+        "why": "Card settlement happens inside a closed processor, so finality isn't publicly verifiable: the proof embeds the processor's result and roots trust in the payee (or the named `did:web` processor). Authorize/capture maps cleanly onto the escrow lifecycle.",
+        "watch": "Settles (✅); the instruction is `mode: escrow` / `captureMode: auth-capture` and the attestation `status` is `captured`.",
+    },
+    "settle-rtp-push": {
+        "what": "The authorization is settled over an **instant bank rail** (FedNow / RTP) as a direct push. The payee returns a payee-attested `AttestedSettlementProof` that the transfer settled, and the money moves.",
+        "why": "RTP is push and **irrevocable**, so there is no escrow — the proof attests settlement after the fact. Same attested-finality model as card, a different scheme.",
+        "watch": "Settles (✅); the instruction is `mode: direct` with `scheme: fednow` (no escrow), attestation `status` `settled`.",
+    },
+    "settle-card-redirection": {
+        "what": "The card instruction names a processor account whose `ProcessorAccountBinding` is controlled by an **attacker**, not the authorized payee. The wallet checks the binding and refuses to settle.",
+        "why": "Anti-redirection holds on closed-processor rails just as on-chain: funds may only go to an account the *authorized payee* signed for, even with an otherwise valid authorization.",
+        "watch": "Refused (⛔ account redirection); no money moves.",
+    },
 }
