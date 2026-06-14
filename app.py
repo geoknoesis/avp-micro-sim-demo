@@ -786,6 +786,8 @@ def _render_exchange(log):
                        f"<span class='m-badge' style='background:{mc}'>{req['method']}</span>"
                        f"<span class='pa'>{req['path']}</span>", req.get("headers", {}))
             rb = req.get("body")
+            if _body_type(rb) == "SessionBudgetAuthorization":
+                st.caption("commits the session budget cap the payee meters against.")
             if _body_type(rb) == "AuthorizationSubmission":
                 echo = rb.get("challenge") == nonce
                 st.markdown(":green[✓ echoes the server challenge nonce — binds this submission "
@@ -823,6 +825,18 @@ def _render_exchange(log):
                     st.caption(f"offending field: `{sb['field']}`")
             elif bt == "PaymentReceipt":
                 st.markdown(":green[✓ delivered — payee-signed PaymentReceipt]")
+            elif bt == "PaymentExecution":
+                st.markdown(":green[✓ wallet-signed PaymentExecution]")
+            elif bt == "UsageSession":
+                st.markdown(":green[✓ metered session — UsageSession]")
+            elif bt == "UsageAccrual":
+                st.markdown(":green[✓ incremental metered usage — UsageAccrual]")
+            elif bt == "SettlementProof":
+                fin = sb.get("finality")
+                tone = "green" if fin == "final" else "orange"
+                st.markdown(f":{tone}[✓ SettlementProof — finality **{fin}**]")
+            if res.get("headers", {}).get("Location"):
+                st.caption("↪ Location — the client polls this URL until the SettlementProof is final.")
             _body_expander("response body", sb)
 
 
@@ -877,12 +891,21 @@ def render_transport():
     st.markdown(f"<div class='avp-flowmap'>{''.join(nodes)}</div>", unsafe_allow_html=True)
     st.write("")
 
-    t1, t2, t3 = st.tabs(["💳 402 happy path", "⛔ Over-cap rejection", "🛰️ Discovery document"])
-    with t1:
+    tabs = st.tabs(["💳 402 happy path", "🧾 explicit quote", "📡 streaming",
+                    "⏳ async settle", "🔁 idempotency", "⛔ over-cap", "🛰️ discovery"])
+    with tabs[0]:
         _render_exchange(_txp("40-exchange-402-flow.json"))
-    with t2:
+    with tabs[1]:
+        _render_exchange(_txp("42-exchange-quote-flow.json"))
+    with tabs[2]:
+        _render_exchange(_txp("43-exchange-streaming.json"))
+    with tabs[3]:
+        _render_exchange(_txp("44-exchange-async-settlement.json"))
+    with tabs[4]:
+        _render_exchange(_txp("45-exchange-idempotency.json"))
+    with tabs[5]:
         _render_exchange(_txp("41-exchange-over-cap.json"))
-    with t3:
+    with tabs[6]:
         _render_discovery(_txp("00-service-description.json"))
 
 
