@@ -892,7 +892,8 @@ def render_transport():
     st.write("")
 
     tabs = st.tabs(["💳 402 happy path", "🧾 explicit quote", "📡 streaming",
-                    "⏳ async settle", "🔁 idempotency", "⛔ over-cap", "🛰️ discovery"])
+                    "⏳ async settle", "🔁 idempotency", "🚫 replay", "⛔ over-cap",
+                    "🛰️ discovery"])
     with tabs[0]:
         _render_exchange(_txp("40-exchange-402-flow.json"))
     with tabs[1]:
@@ -904,8 +905,10 @@ def render_transport():
     with tabs[4]:
         _render_exchange(_txp("45-exchange-idempotency.json"))
     with tabs[5]:
-        _render_exchange(_txp("41-exchange-over-cap.json"))
+        _render_exchange(_txp("46-exchange-replay.json"))
     with tabs[6]:
+        _render_exchange(_txp("41-exchange-over-cap.json"))
+    with tabs[7]:
         _render_discovery(_txp("00-service-description.json"))
 
 
