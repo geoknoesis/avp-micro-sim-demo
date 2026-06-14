@@ -18,6 +18,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent / "engine"))
 import sim  # noqa: E402  (vendored engine)
 import avp_crypto as ac  # noqa: E402  (vendored: ecdsa-jcs-2022 verify)
+from explainers import EXPLAINERS  # noqa: E402  (plain-language per-use-case explainers)
 
 # Locate the spec repo (for the signed conformance test vectors). Read live so the
 # list stays current with the spec; degrade gracefully if it isn't a sibling.
@@ -538,6 +539,12 @@ def render_walk(name):
     st.markdown(scenario_title_html(name, _group_of(name)), unsafe_allow_html=True)
     st.markdown(f"<p class='avp-lead'>{res['description']}</p>", unsafe_allow_html=True)
     st.markdown(outcome_html(outcome_of(res)), unsafe_allow_html=True)
+    exp = EXPLAINERS.get(name)
+    if exp:
+        with st.expander("ℹ️ About this use case", expanded=True):
+            st.markdown(f"**What happens.**&nbsp; {exp['what']}")
+            st.markdown(f"**Why it matters.**&nbsp; {exp['why']}")
+            st.markdown(f"**What to watch.**&nbsp; {exp['watch']}")
     st.write("")
 
     left, right = st.columns([3, 2], gap="large")
