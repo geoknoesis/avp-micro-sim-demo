@@ -912,6 +912,61 @@ def render_transport():
         _render_discovery(_txp("00-service-description.json"))
 
 
+def render_live():
+    st.markdown("## Live — run a real 402 exchange")
+    st.markdown("<p class='avp-lead'>Set the mandate policy and the request, then run the exchange "
+                "for real: the quote, the 402 challenge, the authorization, and the wallet's verdict are "
+                "produced live with real <code>ecdsa-jcs-2022</code> signatures and the reference wallet's "
+                "actual policy enforcement — nothing is mocked.</p>", unsafe_allow_html=True)
+    import live  # noqa: E402  (shares the engine + server.py)
+
+    c1, c2, c3 = st.columns(3)
+    amount = c1.text_input("Amount", "1.00")
+    cap = c2.text_input("Cap (maxPerTransaction)", "5.00")
+    currency = c3.selectbox("Currency", ["USD", "EUR"], index=0)
+    c4, c5, c6 = st.columns(3)
+    payee_allowed = c4.toggle("Payee on allow-list", value=True)
+    require_conf = c5.toggle("Require human approval", value=False)
+    provide_conf = c6.toggle("…and provide it", value=False, disabled=not require_conf)
+
+    params = {"amount": amount, "maxPerTransaction": cap, "currency": currency,
+              "payeeAllowed": payee_allowed, "requireConfirmation": require_conf,
+              "provideConfirmation": provide_conf}
+    try:
+        result = live.build_exchange(params)
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Could not run the exchange: {e}")
+        return
+
+    v = result["verdict"]
+    if v.get("outcome") == "reject":
+        st.markdown(outcome_html({
+            "color": "#dc2626", "emoji": "⛔", "code": v.get("code"),
+            "title": "Refused — no money moved",
+            "sub": (WHY.get(v.get("code"), v.get("code")) or "").capitalize() + "."}),
+            unsafe_allow_html=True)
+    else:
+        s = v.get("status", "completed")
+        title = f"Accepted — {s}" + (f" {v.get('settled')}" if v.get("settled") else "")
+        st.markdown(outcome_html({
+            "color": "#059669", "emoji": "✅", "code": None, "title": title,
+            "sub": "The wallet verified the chain, enforced policy, and settled on the play ledger."}),
+            unsafe_allow_html=True)
+    st.write("")
+    _render_exchange(result["exchange"])
+
+    with st.expander("Run it as a real local HTTP server (`server.py`)"):
+        pa = "allowed" if payee_allowed else "blocked"
+        st.caption("Same logic, served over real HTTP on localhost:8402 — a repeated authorized call "
+                   "returns 409 nonce-reuse (single-use challenge).")
+        st.code(
+            "python server.py\n"
+            f'curl -i "http://localhost:8402/resource/premium?amount={amount}&cap={cap}&payee={pa}"\n'
+            f'curl -i "http://localhost:8402/resource/premium?amount={amount}&cap={cap}&payee={pa}" '
+            '-H "Authorization: AVP-Micro retry"',
+            language="bash")
+
+
 def render_conformance_profile():
     st.markdown("## Wallet conformance")
     prof = (SPEC_DIR / "conformance" / "profile.json") if SPEC_DIR else None
@@ -961,11 +1016,12 @@ with st.sidebar:
     st.markdown("### Explore")
     view = st.radio(
         "View",
-        ["Walk a use case", "All use cases", "Transport (HTTP 402)",
+        ["Walk a use case", "All use cases", "Transport (HTTP 402)", "Live (try it)",
          "Wallet conformance", "Conformance vectors"],
         key="nav_view",
         captions=["one scenario, end to end", "every scenario at a glance",
-                  "the HTTP wire protocol", "the normative WCP profile", "signed spec test vectors"],
+                  "the HTTP wire protocol", "run a real 402 exchange",
+                  "the normative WCP profile", "signed spec test vectors"],
     )
     if view == "Walk a use case":
         grp = st.selectbox("Category", list(GROUPS), key="nav_cat")
@@ -986,6 +1042,8 @@ elif view == "All use cases":
     render_overview()
 elif view == "Transport (HTTP 402)":
     render_transport()
+elif view == "Live (try it)":
+    render_live()
 elif view == "Wallet conformance":
     render_conformance_profile()
 else:

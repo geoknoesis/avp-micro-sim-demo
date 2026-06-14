@@ -23,7 +23,7 @@ streamlit run app.py
 ```
 
 The header shows the four-box mental model (**Principal → Agent → Wallet → Payee**) and the
-sidebar carries a colour-coded **cast** legend so every diagram stays readable. Four views:
+sidebar carries a colour-coded **cast** legend so every diagram stays readable. Six views:
 
 - **Walk a use case** — one scenario end to end: a plain-English **outcome banner** (with the
   machine refusal code when refused), the **message-flow diagram**, the **play-money ledger**
@@ -39,7 +39,18 @@ sidebar carries a colour-coded **cast** legend so every diagram stays readable. 
   and the **discovery document** (`GET /.well-known/avp-micro` → a payee-signed `ServiceDescription`).
   Each step shows the request/response line, headers, and the signed body, with the security bindings
   checked live — `quoteDigest` binds the quote, the submission **echoes the challenge nonce**
-  (anti-replay), and `authorizationDigest` binds the authorization.
+  (anti-replay), and `authorizationDigest` binds the authorization. Also includes a **replay**
+  tab (a consumed nonce → signed `409 nonce-reuse`).
+- **Live (try it)** — run a **real** 402 exchange from the UI: set the amount, cap, payee
+  allow-list, and human-approval requirement, and the quote, challenge, authorization, and the
+  wallet's verdict are produced live with real `ecdsa-jcs-2022` signatures and the reference
+  wallet's actual policy. The same logic is runnable as a real localhost HTTP server —
+  [`server.py`](server.py) (`python server.py` → `http://localhost:8402`), where a repeated
+  authorized call returns `409 nonce-reuse` (single-use challenge).
+- **Wallet conformance** — the bundled reference engine certified against the normative
+  **Wallet Conformance Profile** (`spec/conformance/profile.json`): 45 `WCP-…` requirements in
+  ten categories, each ✅/⛔ with the scenario and decisive outcome. Implementers certify their
+  own wallet by writing a `WalletAdapter`.
 - **Conformance vectors** — see below.
 
 ## The use cases
