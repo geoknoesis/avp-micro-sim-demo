@@ -912,6 +912,42 @@ def render_transport():
         _render_discovery(_txp("00-service-description.json"))
 
 
+def render_conformance_profile():
+    st.markdown("## Wallet conformance")
+    prof = (SPEC_DIR / "conformance" / "profile.json") if SPEC_DIR else None
+    if not prof or not prof.exists():
+        st.warning("Wallet Conformance Profile not found in the spec checkout. Set `AVP_SPEC_DIR` "
+                   "to the spec/ directory to certify the reference engine here.")
+        return
+    import conformance as conf  # vendored engine
+    report = conf.evaluate(profile_path=prof)
+    rows = report["rows"]
+    cats = []
+    for r in rows:
+        if r["category"] not in cats:
+            cats.append(r["category"])
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Requirements", report["total"])
+    m2.metric("Satisfied", f"{report['satisfied']}/{report['total']}")
+    m3.metric("Categories", len(cats))
+    st.caption("The bundled **reference engine** certified against the normative "
+               "**Wallet Conformance Profile** (`conformance/profile.json`), read live from the "
+               "spec. ✅ = the engine behaved exactly as the requirement declares. To certify your "
+               "own wallet, implement a `WalletAdapter` (see the profile README).")
+    for cat in cats:
+        crows = [r for r in rows if r["category"] == cat]
+        npass = sum(1 for r in crows if r["passed"])
+        with st.container(border=True):
+            st.markdown(f"#### {cat} — {npass}/{len(crows)}")
+            for r in crows:
+                badge = ":green[✅]" if r["passed"] else ":red[⛔]"
+                detail = (f"scenario `{r['scenario']}` → expect `{r['expected']}`"
+                          + ("" if r["passed"] else f" · observed `{r['observed']}`"))
+                st.markdown(f"{badge} **{r['id']}** <span class='avp-muted'>({r['level']})</span> "
+                            f"{r['statement']}  \n<span class='avp-muted'>{detail}</span>",
+                            unsafe_allow_html=True)
+
+
 # ---- layout -----------------------------------------------------------------
 
 st.markdown(CSS, unsafe_allow_html=True)
@@ -925,10 +961,11 @@ with st.sidebar:
     st.markdown("### Explore")
     view = st.radio(
         "View",
-        ["Walk a use case", "All use cases", "Transport (HTTP 402)", "Conformance vectors"],
+        ["Walk a use case", "All use cases", "Transport (HTTP 402)",
+         "Wallet conformance", "Conformance vectors"],
         key="nav_view",
         captions=["one scenario, end to end", "every scenario at a glance",
-                  "the HTTP wire protocol", "signed spec test vectors"],
+                  "the HTTP wire protocol", "the normative WCP profile", "signed spec test vectors"],
     )
     if view == "Walk a use case":
         grp = st.selectbox("Category", list(GROUPS), key="nav_cat")
@@ -949,5 +986,7 @@ elif view == "All use cases":
     render_overview()
 elif view == "Transport (HTTP 402)":
     render_transport()
+elif view == "Wallet conformance":
+    render_conformance_profile()
 else:
     render_conformance()
