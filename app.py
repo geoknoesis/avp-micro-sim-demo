@@ -30,7 +30,7 @@ SPEC_DIR = next((Path(p) for p in [
 BUNDLES = [
     ("Authority (DSA)", "authority"), ("Payments", "payments"),
     ("Interop (SD-JWT-VC)", "interop-sd-jwt-vc"), ("Refunds, reversals & disputes", "disputes"),
-    ("On-chain settlement binding", "settlement"),
+    ("On-chain settlement binding", "settlement"), ("Transport (HTTP 402)", "transport"),
 ]
 
 st.set_page_config(page_title="AVP-Micro Simulator", page_icon="🔐", layout="wide")
@@ -108,6 +108,18 @@ a, a:visited{ color:var(--accent); }
 .avp-cast-row{ display:flex; align-items:center; gap:.42rem; font-size:.84rem; }
 .avp-cast-row .dot{ width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
 .avp-cast-row .ds{ color:var(--muted); font-size:.75rem; }
+
+/* transport: HTTP-on-the-wire conversation */
+.wire-req, .wire-res{ font-family:'IBM Plex Mono',monospace; font-size:.82rem;
+  border:1px solid var(--line); border-radius:11px; background:var(--panel); padding:.55rem .8rem; }
+.wire-req{ border-left:4px solid #2563eb; }
+.wire-res{ border-left:4px solid var(--accent); margin:.45rem 0 .15rem 1.6rem; }
+.wire-line{ font-weight:600; color:var(--ink); display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+.wire-line .pa{ word-break:break-all; }
+.wire-hdr{ color:var(--muted); font-size:.75rem; margin-top:.34rem; line-height:1.55; }
+.wire-hdr b{ color:var(--ink); font-weight:600; }
+.m-badge, .s-badge{ font-weight:700; border-radius:6px; padding:.05rem .45rem; font-size:.72rem; color:#fff; }
+.wire-dir{ color:var(--muted); font-size:.72rem; margin:.5rem 0 .1rem 1.6rem; }
 </style>
 """
 
@@ -665,6 +677,215 @@ def render_conformance():
                     st.json(obj)
 
 
+# ---- transport (HTTP 402 wire binding) --------------------------------------
+
+# the wire layer's mental model: discovery, then the 402 challenge dance
+TXP_FLOW = [
+    ("Discover", "🛰️", "#6d28d9", "GET /.well-known"),
+    ("402 Challenge", "🚧", "#d97706", "quote + nonce"),
+    ("Authorize", "🤖", "#2563eb", "echo the nonce"),
+    ("200 + Receipt", "🧾", "#059669", ""),
+]
+TXP_NS = "https://w3id.org/avp-micro/transport/v1#"
+TXP_WHY = {  # transport error-code (local name) -> plain explanation
+    "over-cap": "the amount is above the agent's per-transaction limit",
+    "currency-mismatch": "the currency isn't the one the mandate authorizes",
+    "amount-mismatch": "the authorization's amount doesn't match the quote",
+    "daily-limit-exceeded": "this would exceed the agent's daily spending limit",
+    "budget-exceeded": "this would exceed the committed session budget",
+    "payee-not-allowed": "this payee isn't on the agent's allow-list",
+    "category-not-allowed": "this category isn't permitted by the mandate",
+    "expired": "the quote or authorization has expired",
+    "challenge-expired": "the 402 challenge expired — fetch a fresh one",
+    "idempotency-conflict": "the Idempotency-Key was reused with a different body",
+    "double-spend": "this authorization was already settled once",
+    "nonce-reuse": "this challenge nonce was already used (replay blocked)",
+    "credential-revoked": "the principal revoked the credential",
+    "unauthorized": "the submission signature or credential chain failed",
+    "malformed-request": "the request body was malformed",
+}
+_METHOD_C = {"GET": "#2563eb", "POST": "#7c3aed", "PUT": "#d97706", "DELETE": "#dc2626"}
+_REASON = {200: "OK", 201: "Created", 400: "Bad Request", 401: "Unauthorized",
+           402: "Payment Required", 403: "Forbidden", 409: "Conflict",
+           422: "Unprocessable Content", 502: "Bad Gateway", 503: "Service Unavailable"}
+
+
+def _status_color(s):
+    if 200 <= s < 300:
+        return "#059669"
+    if s == 402:
+        return "#d97706"
+    return "#dc2626"
+
+
+def _txp(name):
+    return json.loads((SPEC_DIR / "transport" / "test-vectors" / name).read_text(encoding="utf-8"))
+
+
+def _body_type(body):
+    if not isinstance(body, dict):
+        return "JSON"
+    t = body.get("type")
+    if isinstance(t, list):
+        t = next((x for x in t if x != "VerifiableCredential"), t[0])
+    if isinstance(t, str) and t.startswith(TXP_NS):
+        return "ProblemDetails"
+    if t:
+        return t
+    if "challenge" in body and "quote" in body:
+        return "402 body { challenge, quote }"
+    return "JSON"
+
+
+def _headers_html(h):
+    if not h:
+        return ""
+    return "<div class='wire-hdr'>" + "<br>".join(
+        f"<b>{k}:</b> {v}" for k, v in h.items()) + "</div>"
+
+
+def _wire_card(kind, top_html, headers):
+    st.markdown(f"<div class='wire-{kind}'><div class='wire-line'>{top_html}</div>"
+                f"{_headers_html(headers)}</div>", unsafe_allow_html=True)
+
+
+def _body_expander(label, body):
+    if isinstance(body, (dict, list)):
+        t = _body_type(body)
+        v = _verify_vector(body) if isinstance(body, dict) else None
+        if isinstance(body, dict) and "challenge" in body and isinstance(body.get("challenge"), dict):
+            v = _verify_vector(body["challenge"])  # the embedded signed challenge
+        sig = "  ·  :green[✅ signed proof verifies]" if v is True else (
+            "  ·  :red[⛔ proof FAILS]" if v is False else "")
+        with st.expander(f"{label} — {t}{sig}"):
+            st.json(body)
+
+
+def _render_exchange(log):
+    st.caption(log.get("description", ""))
+    # the challenge nonce the server issued in this exchange (for the echo check)
+    nonce = None
+    for stp in log["steps"]:
+        rb = stp["response"].get("body")
+        if isinstance(rb, dict) and isinstance(rb.get("challenge"), dict):
+            nonce = rb["challenge"].get("challenge")
+    # the canonical payments objects the transport objects wrap (for digest checks)
+    try:
+        authz_c = json.loads((SPEC_DIR / "payments" / "test-vectors"
+                              / "02-payment-authorization.json").read_text(encoding="utf-8"))
+    except Exception:
+        authz_c = None
+
+    for i, stp in enumerate(log["steps"], 1):
+        req, res = stp["request"], stp["response"]
+        with st.container(border=True):
+            st.markdown(f"**Step {i}**")
+            # --- request ---
+            mc = _METHOD_C.get(req["method"], "#6b7280")
+            _wire_card("req",
+                       f"<span class='m-badge' style='background:{mc}'>{req['method']}</span>"
+                       f"<span class='pa'>{req['path']}</span>", req.get("headers", {}))
+            rb = req.get("body")
+            if _body_type(rb) == "AuthorizationSubmission":
+                echo = rb.get("challenge") == nonce
+                st.markdown(":green[✓ echoes the server challenge nonce — binds this submission "
+                            "to *this* 402 (anti-replay)]" if echo
+                            else ":red[✗ challenge nonce does not match]")
+                if authz_c is not None:
+                    bound = rb.get("authorizationDigest") == ac.jcs_digest(authz_c)
+                    st.markdown(f":green[✓ authorizationDigest binds `{short(rb.get('authorization'))}`]"
+                                if bound else ":red[✗ authorizationDigest mismatch]")
+                if req.get("headers", {}).get("Idempotency-Key"):
+                    st.caption("Idempotency-Key makes the retry safe — a repeat returns the same "
+                               "receipt; a different body → 409 idempotency-conflict.")
+            _body_expander("request body", rb)
+
+            st.markdown("<div class='wire-dir'>↓ response</div>", unsafe_allow_html=True)
+            # --- response ---
+            sc = _status_color(res["status"])
+            _wire_card("res",
+                       f"<span class='s-badge' style='background:{sc}'>{res['status']}</span>"
+                       f"<span>{_REASON.get(res['status'], '')}</span>", res.get("headers", {}))
+            sb = res.get("body")
+            bt = _body_type(sb)
+            if bt == "402 body { challenge, quote }":
+                ch, q = sb["challenge"], sb["quote"]
+                bound = ch.get("quoteDigest") == ac.jcs_digest(q)
+                st.markdown(f":green[✓ quoteDigest binds the offered quote `{short(q.get('id'))}`]"
+                            if bound else ":red[✗ quoteDigest does not match the quote]")
+                st.caption(f"server challenge nonce `{ch.get('challenge')}` · expires {ch.get('expires')} "
+                           "— the client must echo the nonce on its retry.")
+            elif bt == "ProblemDetails":
+                code = (sb.get("type") or "").rsplit("#", 1)[-1]
+                why = TXP_WHY.get(code, code)
+                st.markdown(f":red[**⛔ {code}** — {why}.]")
+                if sb.get("field"):
+                    st.caption(f"offending field: `{sb['field']}`")
+            elif bt == "PaymentReceipt":
+                st.markdown(":green[✓ delivered — payee-signed PaymentReceipt]")
+            _body_expander("response body", sb)
+
+
+def _render_discovery(sd):
+    st.caption("`GET /.well-known/avp-micro` → a payee-signed **ServiceDescription**: the agent "
+               "learns endpoints, accepted issuers, and settlement rails before transacting.")
+    v = _verify_vector(sd)
+    badge = ":green[✅ proof verifies]" if v is True else (
+        ":red[⛔ proof FAILS]" if v is False else ":gray[—]")
+    st.markdown(f"**Payee** `{short(sd.get('payee'))}`  ·  {badge}")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**Accepted settlement rails**")
+        for r in sd.get("acceptedSettlementRails", []):
+            st.markdown(f"- `{r.rsplit('#', 1)[-1]}`")
+        st.markdown("**Accepted credential issuers**")
+        for iss in sd.get("acceptedCredentialIssuers", []):
+            st.markdown(f"- `{short(iss)}`")
+    with c2:
+        st.markdown("**Supported bundles**")
+        for ns, ver in (sd.get("supportedBundles") or {}).items():
+            st.markdown(f"- `{ns.rsplit('/', 2)[-2] if ns.endswith('v1') else ns}` → {ver}")
+
+    st.markdown("**Endpoints advertised**")
+    eps = sd.get("endpoints") or {}
+    st.table([{"operation": k, "URL template": v} for k, v in eps.items()])
+    with st.expander("ServiceDescription JSON"):
+        st.json(sd)
+
+
+def render_transport():
+    st.markdown("## Transport — the HTTP 402 challenge")
+    if not SPEC_DIR or not (SPEC_DIR / "transport" / "test-vectors").exists():
+        st.warning("Transport bundle not found. Set `AVP_SPEC_DIR` to the spec/ directory (and ensure "
+                   "the transport bundle is present) to illustrate the wire protocol here.")
+        return
+    st.markdown(
+        "<p class='avp-lead'>The other bundles define <em>messages</em>; this one defines the "
+        "<em>wire</em>. An agent and a payee run the whole flow over HTTP using a "
+        "<b>402 Payment Required</b> challenge. Below are the spec's own signed example exchanges — "
+        "the same bytes the conformance vectors carry — rendered as the HTTP conversation.</p>",
+        unsafe_allow_html=True)
+
+    nodes = []
+    for i, (nm, ic, c, verb) in enumerate(TXP_FLOW):
+        nodes.append(f"<div class='avp-node' style='--c:{c}'><div class='ic'>{ic}</div>"
+                     f"<div class='nm'>{nm}</div></div>")
+        if i < len(TXP_FLOW) - 1:
+            nodes.append(f"<div class='avp-arrow'><div class='ln'>&rarr;</div>"
+                         f"<div class='vb'>{verb}</div></div>")
+    st.markdown(f"<div class='avp-flowmap'>{''.join(nodes)}</div>", unsafe_allow_html=True)
+    st.write("")
+
+    t1, t2, t3 = st.tabs(["💳 402 happy path", "⛔ Over-cap rejection", "🛰️ Discovery document"])
+    with t1:
+        _render_exchange(_txp("40-exchange-402-flow.json"))
+    with t2:
+        _render_exchange(_txp("41-exchange-over-cap.json"))
+    with t3:
+        _render_discovery(_txp("00-service-description.json"))
+
+
 # ---- layout -----------------------------------------------------------------
 
 st.markdown(CSS, unsafe_allow_html=True)
@@ -678,9 +899,10 @@ with st.sidebar:
     st.markdown("### Explore")
     view = st.radio(
         "View",
-        ["Walk a use case", "All use cases", "Conformance vectors"],
+        ["Walk a use case", "All use cases", "Transport (HTTP 402)", "Conformance vectors"],
         key="nav_view",
-        captions=["one scenario, end to end", "every scenario at a glance", "signed spec test vectors"],
+        captions=["one scenario, end to end", "every scenario at a glance",
+                  "the HTTP wire protocol", "signed spec test vectors"],
     )
     if view == "Walk a use case":
         grp = st.selectbox("Category", list(GROUPS), key="nav_cat")
@@ -699,5 +921,7 @@ if view == "Walk a use case":
     render_walk(st.session_state.nav_scn)
 elif view == "All use cases":
     render_overview()
+elif view == "Transport (HTTP 402)":
+    render_transport()
 else:
     render_conformance()

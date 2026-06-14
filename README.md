@@ -23,7 +23,7 @@ streamlit run app.py
 ```
 
 The header shows the four-box mental model (**Principal → Agent → Wallet → Payee**) and the
-sidebar carries a colour-coded **cast** legend so every diagram stays readable. Three views:
+sidebar carries a colour-coded **cast** legend so every diagram stays readable. Four views:
 
 - **Walk a use case** — one scenario end to end: a plain-English **outcome banner** (with the
   machine refusal code when refused), the **message-flow diagram**, the **play-money ledger**
@@ -33,6 +33,13 @@ sidebar carries a colour-coded **cast** legend so every diagram stays readable. 
   `did:web`), and the **🧩 declarative source** (the exact JSON that defines the use case).
 - **All use cases** — every scenario at a glance with a pass/fail badge; press **Walk →** on any
   row to jump straight into it.
+- **Transport (HTTP 402)** — the wire binding: the spec's own signed example exchanges rendered as
+  the actual HTTP conversation. The **402 happy path** (gated `GET` → `402` with `{challenge, quote}`
+  → authorized retry → `200` + receipt), an **over-cap rejection** (`402` + RFC 9457 `ProblemDetails`),
+  and the **discovery document** (`GET /.well-known/avp-micro` → a payee-signed `ServiceDescription`).
+  Each step shows the request/response line, headers, and the signed body, with the security bindings
+  checked live — `quoteDigest` binds the quote, the submission **echoes the challenge nonce**
+  (anti-replay), and `authorizationDigest` binds the authorization.
 - **Conformance vectors** — see below.
 
 ## The use cases
@@ -56,10 +63,10 @@ dispute use cases add an **⚖️ Arbiter** participant.
 
 ## Conformance test vectors
 
-A third sidebar view, **Conformance vectors**, lists *every* signed conformance test
-vector from the spec — Authority, Payments, Interop, Disputes, and on-chain Settlement
-binding — each as a use case, with its `ecdsa-jcs-2022` proof verified and the signed JSON
-inspectable. These are
+The **Conformance vectors** view lists *every* signed conformance test
+vector from the spec — Authority, Payments, Interop, Disputes, on-chain Settlement
+binding, and the HTTP Transport bundle — each as a use case, with its `ecdsa-jcs-2022` proof
+verified and the signed JSON inspectable. These are
 read **live** from a sibling `avp-micro-spec` checkout (or `AVP_SPEC_DIR`), so they stay current;
 if the spec repo isn't found, this view degrades gracefully and the simulator use cases still work.
 
